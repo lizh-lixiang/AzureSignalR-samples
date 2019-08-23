@@ -28,6 +28,9 @@ namespace Microsoft.Azure.SignalR.Samples.ReliableChatRoom
                             new Claim(ClaimTypes.NameIdentifier, context.Request.Query["username"])
                         };
                     });
+
+            services.AddSingleton<ISessionHandler, SessionStorageInMemory>();
+            services.AddSingleton<IMessageHandler, MessageStorageInMemory>();
         }
 
         public void Configure(IApplicationBuilder app)

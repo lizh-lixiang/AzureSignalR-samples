@@ -6,6 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Folder Include="MessageHandler\MessageStoreInAzureTable\" />
+    <Folder Include="SessionHandler\SessionStorageInAzureTable\" />
     <Folder Include="wwwroot\" />
   </ItemGroup>
 

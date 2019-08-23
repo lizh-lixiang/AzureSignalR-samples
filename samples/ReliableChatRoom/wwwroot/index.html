@@ -31,6 +31,13 @@
         <div style="overflow: auto; border-style: ridge; border-top-style: hidden;">
             <button class="btn-success pull-right" id="sendUserMessage">Send To User</button>
         </div>
+        <div style="width: 100%; border-left-style: ridge; border-right-style: ridge;">
+            <textarea id="sessionId" style="width: 100%; padding: 5px 10px; border-style: hidden;"
+                      placeholder="Type sessionId"></textarea>
+        </div>
+        <div style="overflow: auto; border-style: ridge; border-top-style: hidden;">
+            <button class="btn-success pull-right" id="loadMessage">Load</button>
+        </div>
     </div>
     <div class="modal alert alert-danger fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
         <div class="modal-dialog" role="document">
@@ -50,10 +57,6 @@
     <!--Add script to update the page and send messages.-->
     <script type="text/javascript">
         var username = generateRandomName();
-
-        var connection = new signalR.HubConnectionBuilder()
-            .withUrl(`/chat?username=${username}`)
-            .build();
 
         function generateRandomName() {
             return Math.random().toString(36).substring(2, 10);
@@ -113,9 +116,14 @@
                 }
             } while (!username);
 
+            var connection = new signalR.HubConnectionBuilder()
+                .withUrl(`/chat?username=${username}`)
+                .build();
+
             // Set initial focus to message input box.
             var messageInput = document.getElementById('message');
             var targetNameInput = document.getElementById('targetName');
+            var sessionIdInput = document.getElementById('sessionId');
             messageInput.focus();
 
             function bindConnectionMessage(connection) {
@@ -132,7 +140,7 @@
                     });
                     addNewMessageToScreen(messageEntry);
 
-                    connection.invoke('sendUserAck', id, name, "Received");
+                    // connection.invoke('sendUserAck', id, name, "Received");
                 };
 
                 //  Change the status text under the message
@@ -144,10 +152,17 @@
                         "\nLocal Time: " + now.toLocaleTimeString());
                 }
 
+                //  Log all sessions
+                const updateSessions = function (sessions)
+                {
+                    console.log(sessions);
+                }
+
                 // Create a function that the hub can call to broadcast messages.
                 connection.on('broadcastMessage', displayPublicMessage);
                 connection.on('displayAckMessage', displayAckMessage);
                 connection.on('displayUserMessage', displayUserMessage);
+                connection.on('updateSessions', updateSessions);
                 connection.onclose(onConnectionError);
             }
 
@@ -156,12 +171,15 @@
                     return;
                 }
 
+
                 const messageId = generateGuid();
 
                 // Create the message in the window.
                 var now = new Date();
                 const targetName = targetNameInput.value;
                 const messageText = messageInput.value;
+
+                const sessionId = await connection.invoke('createNewSession', targetName);
 
                 // Clear text box and reset focus for next comment.
                 messageInput.value = '';
@@ -185,12 +203,19 @@
                     .toLocaleTimeString());
 
                 // Call the sendUserMessage method on the hub.
-                const x = await connection.invoke('sendUserMessage', messageId, targetName, messageText);
+                const x = await connection.invoke('sendUserMessage',sessionId, targetName, messageText);
                 now = new Date();
                 const statusElement = document.getElementById(messageId + "-Status");
                 statusElement.innerText = x + " at " + now.toLocaleTimeString();
                 console.log("messageId: " + messageId + "\nStatus: " + x + "\nLocal Time: " + now
                     .toLocaleTimeString());
+            }
+
+            async function loadMessage(event) {
+                const sessionId = sessionIdInput.value;
+                const x = await connection.invoke('loadMessages', sessionId);
+
+                console.log(x);
             }
 
             function onConnected(connection) {
@@ -211,6 +236,10 @@
 
                 document.getElementById('sendUserMessage').addEventListener('click', (event) =>
                     sendUserMessage(event));
+
+                document.getElementById('loadMessage').addEventListener('click', (event) =>
+                    loadMessage(event));
+
                 document.getElementById('message').addEventListener('keypress', function (event) {
                     if (event.keyCode === 13) {
                         event.preventDefault();
