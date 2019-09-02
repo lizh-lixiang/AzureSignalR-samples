@@ -15,30 +15,44 @@
     <h2 class="text-center" style="margin-top: 0; padding-top: 30px; padding-bottom: 30px;">
         Azure SignalR Reliable Chat
     </h2>
-    <div class="container" style="height: calc(100% - 200px);">
-        <div id="messages" style="background-color: whitesmoke; "></div>
-        <div style="width: 100%; border-left-style: ridge; border-right-style: ridge;">
-            <textarea id="message" style="width: 100%; padding: 5px 10px; border-style: hidden;"
-                      placeholder="Type message and press Enter to send..."></textarea>
-        </div>
-        <div style="overflow: auto; border-style: ridge; border-top-style: hidden;">
-            <button class="btn-success pull-right" id="sendmessage">Send All</button>
-        </div>
-        <div style="width: 100%; border-left-style: ridge; border-right-style: ridge;">
-            <textarea id="targetName" style="width: 100%; padding: 5px 10px; border-style: hidden;"
-                      placeholder="Type targetName"></textarea>
-        </div>
-        <div style="overflow: auto; border-style: ridge; border-top-style: hidden;">
-            <button class="btn-success pull-right" id="sendUserMessage">Send To User</button>
-        </div>
-        <div style="width: 100%; border-left-style: ridge; border-right-style: ridge;">
-            <textarea id="sessionId" style="width: 100%; padding: 5px 10px; border-style: hidden;"
-                      placeholder="Type sessionId"></textarea>
-        </div>
-        <div style="overflow: auto; border-style: ridge; border-top-style: hidden;">
-            <button class="btn-success pull-right" id="loadMessage">Load</button>
-        </div>
-    </div>
+    <table style="height: calc(100% - 200px); width: 60%; margin-left: 20%">
+        <tr>
+            <td style="width: 20%;height: 100%;">
+                <div style="height:100%">
+                    <div id="userlist" style="border-right-style: hidden">
+                    </div>
+                </div>
+            </td>
+            <td>
+                <div style="height:100%;">
+                    <div id="messages" style="background-color: whitesmoke;"></div>
+                    <div style="width: 100%; border-left:1px solid #ccc; border-right:1px solid #ccc;">
+                        <textarea id="message" style="width: 100%; padding: 5px 10px; border-style: hidden;"
+                            placeholder="Type message and press Enter to send..."></textarea>
+                    </div>
+                    <div style="overflow: auto; border: 1px solid #ccc; border-top-style: hidden;">
+                        <button class="btn-success pull-right" id="sendmessage">Send All</button>
+                    </div>
+
+                    <div style="width: 100%; border-left:1px solid #ccc; border-right:1px solid #ccc;">
+                        <textarea id="targetName" style="width: 100%; padding: 5px 10px; border-style: hidden;"
+                            placeholder="Type targetName"></textarea>
+                    </div>
+                    <div style="overflow: auto; border:1px solid #ccc; border-top-style: hidden;">
+                        <button class="btn-success pull-right" id="sendUserMessage">Send To User</button>
+                    </div>
+
+                    <div style="width: 100%; border-left:1px solid #ccc; border-right:1px solid #ccc;">
+                        <textarea id="sessionId" style="width: 100%; padding: 5px 10px; border-style: hidden;"
+                            placeholder="Type sessionId"></textarea>
+                    </div>
+                    <div style="overflow: auto; border:1px solid #ccc; border-top-style: hidden;">
+                        <button class="btn-success pull-right" id="loadMessage">Load</button>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
     <div class="modal alert alert-danger fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
@@ -56,61 +70,77 @@
 
     <!--Add script to update the page and send messages.-->
     <script type="text/javascript">
-        var username = generateRandomName();
-
-        function generateRandomName() {
-            return Math.random().toString(36).substring(2, 10);
-        }
-
-        function generateGuid() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-                const r = Math.random() * 16 | 0,
-                    v = c === 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        }
-
-        // Html encode message.
-        function encodedMessage(message) {
-            return message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        }
-
-        function createNewMessage(sender, message, messageId) {
-            const entry = document.createElement('div');
-            entry.classList.add("message-entry");
-            if (sender === "_SYSTEM_") {
-                entry.innerHTML = message;
-                entry.classList.add("text-center");
-                entry.classList.add("system-message");
-            } else if (sender === "_BROADCAST_") {
-                entry.classList.add("text-center");
-                entry.innerHTML =
-                    `<div class="text-center broadcast-message" id="${messageId}">${message}</div>`;
-            } else if (sender === username) {
-                entry.innerHTML =
-                    `<div class="message-avatar pull-right" id="${messageId}">${sender}</div>` +
-                    `<div class="message-content pull-right">${message}<div>`;
-            } else {
-                entry.innerHTML =
-                    `<div class="message-avatar pull-left" id="${messageId}">${sender}</div>` +
-                    `<div class="message-content pull-left">${message}<div>`;
-            }
-            return entry;
-        }
-
-        function addNewMessageToScreen(messageEntry) {
-            const messageBoxElement = document.getElementById('messages');
-            messageBoxElement.appendChild(messageEntry);
-            messageBoxElement.scrollTop = messageBoxElement.scrollHeight;
-        }
-
         document.addEventListener('DOMContentLoaded', function () {
+            var username = generateRandomName();
+            var currentSession = '';
+            var sessionMap = new Map([['Public','Public']]);
+            var currentSession = 'Public';
+
+            function generateRandomName() {
+                return Math.random().toString(36).substring(2, 10);
+            }
+
+            function generateGuid() {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                    const r = Math.random() * 16 | 0,
+                        v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            }
+
+            // Html encode message.
+            function encodedMessage(message) {
+                return message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            }
+
+            function addNewUserCard(userName, lastestMessage) {
+                const entry = document.createElement('div');
+                entry.classList.add("usercard");
+                entry.innerHTML =
+                    `<div class="usercardname">${userName}</div>
+                    <div class="usercardmessage">${userName}</div>`;
+                entry.addEventListener('click', (event) => {
+                    changeSession(userName);
+                    console.log(`swithc to session with user: ${userName}`);
+                });
+                document.getElementById("userlist").appendChild(entry);
+            }
+
+            function createNewMessage(sender, message, messageId) {
+                const entry = document.createElement('div');
+                entry.classList.add("message-entry");
+                if (sender === "_SYSTEM_") {
+                    entry.innerHTML = message;
+                    entry.classList.add("text-center");
+                    entry.classList.add("system-message");
+                } else if (sender === "_BROADCAST_") {
+                    entry.classList.add("text-center");
+                    entry.innerHTML =
+                        `<div class="text-center broadcast-message" id="${messageId}">${message}</div>`;
+                } else if (sender === username) {
+                    entry.innerHTML =
+                        `<div class="message-avatar pull-right" id="${messageId}">${sender}</div>` +
+                        `<div class="message-content pull-right">${message}<div>`;
+                } else {
+                    entry.innerHTML =
+                        `<div class="message-avatar pull-left" id="${messageId}">${sender}</div>` +
+                        `<div class="message-content pull-left">${message}<div>`;
+                }
+                return entry;
+            }
+
+            function addNewMessageToScreen(messageEntry) {
+                const messageBoxElement = document.getElementById('messages');
+                messageBoxElement.appendChild(messageEntry);
+                messageBoxElement.scrollTop = messageBoxElement.scrollHeight;
+            }
+
             // Get the user name and store it to prepend to messages.
             var promptMessage = 'Enter your name:';
             do {
                 username = prompt(promptMessage, username);
                 if (!username || username.startsWith('_') || username.indexOf('<') > -1 || username.indexOf(
-                    '>') > -1) {
+                        '>') > -1) {
                     username = '';
                     promptMessage = 'Invalid input. Enter your name:';
                 }
@@ -153,8 +183,7 @@
                 }
 
                 //  Log all sessions
-                const updateSessions = function (sessions)
-                {
+                const updateSessions = function (sessions) {
                     console.log(sessions);
                 }
 
@@ -180,6 +209,10 @@
                 const messageText = messageInput.value;
 
                 const sessionId = await connection.invoke('createNewSession', targetName);
+                if(sessionId!=currentSession)
+                {
+                    await changeSession(targetName);
+                }
 
                 // Clear text box and reset focus for next comment.
                 messageInput.value = '';
@@ -197,29 +230,57 @@
                 const messageElement = document.getElementById(messageId);
                 const messageStatusEntry = document.createElement('div');
                 messageStatusEntry.innerHTML =
-                    `<div class="message-avatar pull-right" id="${messageId}-Status"> Sent at ${now.toLocaleTimeString()}</div>`;
+                    `<div class="message-avatar pull-right" id="${messageId}-Status">
+                        Sent at ${now.toLocaleTimeString()}</div>`;
                 messageElement.appendChild(messageStatusEntry);
+                messageBoxElement.scrollTop = messageBoxElement.scrollHeight;
                 console.log("messageId: " + messageId + "\nStatus: Sending\nLocal Time: " + now
                     .toLocaleTimeString());
 
                 // Call the sendUserMessage method on the hub.
-                const x = await connection.invoke('sendUserMessage',sessionId, targetName, messageText);
+                const x = await connection.invoke('sendUserMessage', sessionId, targetName, messageText);
                 now = new Date();
                 const statusElement = document.getElementById(messageId + "-Status");
                 statusElement.innerText = x + " at " + now.toLocaleTimeString();
                 console.log("messageId: " + messageId + "\nStatus: " + x + "\nLocal Time: " + now
                     .toLocaleTimeString());
+
+                if (!sessionMap.has(targetName)) {
+                    sessionMap.set(targetName, sessionId);
+                    addNewUserCard(targetName, targetName);
+                }
             }
 
-            async function loadMessage(event) {
-                const sessionId = sessionIdInput.value;
-                const x = await connection.invoke('loadMessages', sessionId);
+            async function loadMessage(sessionId) {
+                const _sessionId = sessionId || sessionIdInput.value;
+                const x = await connection.invoke('loadMessages', _sessionId);
 
                 console.log(x);
+                return x;
+            }
+
+            async function changeSession(targetName) {
+                const sessionId = await connection.invoke('createNewSession', targetName);
+                const historyMessage = await loadMessage(sessionId);
+                const messageBoxElement = document.getElementById('messages');
+
+                currentSession = sessionId;
+                messageBoxElement.innerHTML = ``;
+                messageBoxElement.innerText = ``;
+
+                historyMessage.forEach(element => {
+                    let messageEntry = createNewMessage(element.senderName, encodedMessage(element
+                        .messageContent), element.messageId);
+                    addNewMessageToScreen(messageEntry);
+                });
+
+                console.log(historyMessage);
+                return historyMessage;
             }
 
             function onConnected(connection) {
                 console.log('connection started');
+                addNewUserCard("Public", "");
                 connection.invoke('broadcastMessage', '_SYSTEM_', username + ' JOINED');
 
                 document.getElementById('sendmessage').addEventListener('click', function (event) {
@@ -238,7 +299,7 @@
                     sendUserMessage(event));
 
                 document.getElementById('loadMessage').addEventListener('click', (event) =>
-                    loadMessage(event));
+                    loadMessage());
 
                 document.getElementById('message').addEventListener('keypress', function (event) {
                     if (event.keyCode === 13) {
