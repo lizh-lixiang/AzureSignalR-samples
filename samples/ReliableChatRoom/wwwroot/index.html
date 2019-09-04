@@ -71,9 +71,11 @@
     <!--Add script to update the page and send messages.-->
     <script type="text/javascript">
         document.addEventListener('DOMContentLoaded', function () {
+
             var username = generateRandomName();
-            var currentSession = '';
-            var sessionMap = new Map([['Public','Public']]);
+            var sessionMap = new Map([
+                ['Public', 'Public']
+            ]);
             var currentSession = 'Public';
 
             function generateRandomName() {
@@ -103,6 +105,7 @@
                     changeSession(userName);
                     console.log(`swithc to session with user: ${userName}`);
                 });
+
                 document.getElementById("userlist").appendChild(entry);
             }
 
@@ -209,8 +212,7 @@
                 const messageText = messageInput.value;
 
                 const sessionId = await connection.invoke('createNewSession', targetName);
-                if(sessionId!=currentSession)
-                {
+                if (sessionId != currentSession) {
                     await changeSession(targetName);
                 }
 
@@ -260,7 +262,7 @@
             }
 
             async function changeSession(targetName) {
-                const sessionId = await connection.invoke('createNewSession', targetName);
+                const sessionId = await connection.invoke('getOrCreateNewSession', targetName);
                 const historyMessage = await loadMessage(sessionId);
                 const messageBoxElement = document.getElementById('messages');
 
@@ -276,6 +278,49 @@
 
                 console.log(historyMessage);
                 return historyMessage;
+            }
+
+
+            //  This is used to replace all logics in the current js
+            var newFunction = function () {
+                //  UI related operations
+                const addHistoryMessage = function(historyMessage) {
+                    const messageBoxElement = document.getElementById('messages');
+                    messageBoxElement.innerHTML = ``;
+                    messageBoxElement.innerText = ``;
+
+                    historyMessage.forEach(element => {
+                        let messageEntry = createNewMessage(element.senderName,
+                            encodedMessage(element
+                                .messageContent), element.messageId);
+                        addNewMessageToScreen(messageEntry);
+                    });
+                }
+
+                //  Logics
+                const changeSession = async function (targetName) {
+                    // Check if the session exists in local.
+                    var sessionId;
+                    if (sessionMap.has(targetName)) {
+                        sessionId = sessionMap[targetName];
+                    } else {
+                        sessionId = await connection.invoke('getOrCreateNewSession', targetName);
+                        sessionMap.set(targetName, sessionId);
+
+                        //  Add the sessionCard to the left side of the screen
+                        addNewUserCard(targetName, targetName);
+                    }
+
+                    currentSession = sessionId;
+                    const historyMessage = await loadMessage(sessionId);
+
+                    //  Add the history message to the screen
+                    addHistoryMessage(historyMessage);
+                }
+
+                var sendUserMessage = function () {
+                    
+                }
             }
 
             function onConnected(connection) {

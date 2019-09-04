@@ -50,7 +50,7 @@ namespace Microsoft.Azure.SignalR.Samples.ReliableChatRoom
         /// </summary>
         /// <param name="receiver"></param>
         /// <returns>The sessionId.</returns>
-        public string CreateNewSession(string receiver)
+        public string GetOrCreateNewSession(string receiver)
         {
             var sender = Context.User.FindFirstValue(ClaimTypes.NameIdentifier);
             var session = _sessionHandler.GetOrCreateSession(sender, receiver);
