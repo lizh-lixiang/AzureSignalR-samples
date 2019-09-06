@@ -23,7 +23,7 @@ namespace Microsoft.Azure.SignalR.Samples.ReliableChatRoom
 
         public override Task OnConnectedAsync()
         {
-            var sender = Context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var sender = Context.UserIdentifier;
 
             //  Push the latest session information to the user.
             //  Currently push the whole list. Better pushing the timestamp to make incremental updates. 
@@ -52,7 +52,7 @@ namespace Microsoft.Azure.SignalR.Samples.ReliableChatRoom
         /// <returns>The sessionId.</returns>
         public string GetOrCreateNewSession(string receiver)
         {
-            var sender = Context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var sender = Context.UserIdentifier;
             var session = _sessionHandler.GetOrCreateSession(sender, receiver);
 
             return session.SessionId;
@@ -67,7 +67,7 @@ namespace Microsoft.Azure.SignalR.Samples.ReliableChatRoom
         /// <returns>The sequenceId of the message.</returns>
         public int SendUserMessage(string sessionId, string receiver, string messageContent)
         {
-            var sender = Context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var sender = Context.UserIdentifier;
             var message = new Message(sender, DateTime.Now, messageContent, "Sent");
             var sequenceId = _messageHandler.AddNewMessage(sessionId, message);
 
