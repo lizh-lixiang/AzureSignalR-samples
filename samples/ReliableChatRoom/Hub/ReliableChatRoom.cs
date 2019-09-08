@@ -28,7 +28,7 @@ namespace Microsoft.Azure.SignalR.Samples.ReliableChatRoom
             //  Push the latest session information to the user.
             //  Currently push the whole list. Better pushing the timestamp to make incremental updates. 
             var userSessions = _sessionHandler.GetAllSessions(sender);
-            Clients.Caller.SendAsync("updateSessions",userSessions);
+            Clients.Caller.SendAsync("updateSessions", userSessions);
 
             //  TODO: Push UnreadMessages to the Client (Better way is the client pull the messages later.)
 
@@ -38,11 +38,15 @@ namespace Microsoft.Azure.SignalR.Samples.ReliableChatRoom
         /// <summary>
         /// Broadcast a message to all clients. Won't store the message.
         /// </summary>
-        /// <param name="name"></param>
-        /// <param name="message"></param>
-        public void BroadcastMessage(string name, string message)
+        /// <param name="userName"></param>
+        /// <param name="messageContent"></param>
+        public int BroadcastMessage(string userName, string messageContent)
         {
-            Clients.All.SendAsync("broadcastMessage", name, message);
+            var message = new Message(userName, DateTime.Now, messageContent, "Sent");
+            var sequenceId = _messageHandler.AddNewMessage("Public", message);
+            Clients.All.SendAsync("displayUserMessage", "Public", sequenceId, "Public", messageContent);
+
+            return sequenceId;
         }
 
         /// <summary>

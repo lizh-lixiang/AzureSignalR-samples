@@ -38,7 +38,7 @@
                     <div style="overflow: auto; border: 1px solid #ccc; border-top-style: hidden;">
                         <button class="btn-success pull-right" id="sendmessage">Send</button>
                     </div>
-
+                    <!--
                     <div style="width: 100%; border-left:1px solid #ccc; border-right:1px solid #ccc;">
                         <textarea id="targetName" style="width: 100%; padding: 5px 10px; border-style: hidden;"
                             placeholder="Type targetName"></textarea>
@@ -54,6 +54,7 @@
                     <div style="overflow: auto; border:1px solid #ccc; border-top-style: hidden;">
                         <button class="btn-success pull-right" id="loadMessage">Load</button>
                     </div>
+                    -->
                 </div>
             </td>
         </tr>
@@ -101,24 +102,31 @@
                 return message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             }
 
-            function addNewUserCard(userName, lastestMessage) {
+            function addNewSessionCard(userName, sessionId, lastestMessage) {
                 const entry = document.createElement('div');
                 entry.classList.add("usercard");
                 entry.innerHTML =
-                    `<div class="usercardname">${userName}</div>
-                    <div class="usercardmessage">${userName}</div>`;
+                    `<div class="usercardname" id="${sessionId}">${userName}</div>
+                    <div class="usercardmessage" id="message-${sessionId}">${lastestMessage}</div>`;
                 entry.addEventListener('click', (event) => {
                     changeSession(userName);
-                    console.log(`swithc to session with user: ${userName}`);
+                    console.log(`switch to session with user: ${userName}`);
                 });
 
                 document.getElementById("userlist").appendChild(entry);
             }
 
+            function updateSessionCard(sessionId, lastestMessage) {
+                const elementId = 'message-' + sessionId;
+                const sessionCardElement = document.getElementById(elementId);
+
+                sessionCardElement.innerText = lastestMessage;
+            }
+
             function createNewMessage(sender, message, messageId) {
                 const entry = document.createElement('div');
                 entry.classList.add("message-entry");
-                if (sender === "_SYSTEM_") {
+                if (sender === "Public") {
                     entry.innerHTML = message;
                     entry.classList.add("text-center");
                     entry.classList.add("system-message");
@@ -149,12 +157,25 @@
                 event.preventDefault();
             }
 
+            function addHistoryMessage(historyMessage) {
+                const messageBoxElement = document.getElementById('messages');
+                messageBoxElement.innerHTML = ``;
+                messageBoxElement.innerText = ``;
+
+                historyMessage.forEach(element => {
+                    let messageEntry = createNewMessage(element.senderName,
+                        encodedMessage(element
+                            .messageContent), element.messageId);
+                    addNewMessageToScreen(messageEntry);
+                });
+            }
+
             // Get the user name and store it to prepend to messages.
             var promptMessage = 'Enter your name:';
             do {
                 username = prompt(promptMessage, username);
                 if (!username || username.startsWith('_') || username.indexOf('<') > -1 || username.indexOf(
-                        '>') > -1) {
+                    '>') > -1) {
                     username = '';
                     promptMessage = 'Invalid input. Enter your name:';
                 }
@@ -170,21 +191,6 @@
             const sessionIdInput = document.getElementById('sessionId');
             messageInput.focus();
 
-
-            const addHistoryMessage = function (historyMessage) {
-                const messageBoxElement = document.getElementById('messages');
-                messageBoxElement.innerHTML = ``;
-                messageBoxElement.innerText = ``;
-
-                historyMessage.forEach(element => {
-                    let messageEntry = createNewMessage(element.senderName,
-                        encodedMessage(element
-                            .messageContent), element.messageId);
-                    addNewMessageToScreen(messageEntry);
-                });
-            }
-
-
             //  Logics
             async function loadMessage(sessionId) {
                 const _sessionId = sessionId || sessionIdInput.value;
@@ -193,7 +199,6 @@
                 console.log(x);
                 return x;
             }
-
 
             const changeSession = async function (targetName) {
                 // Check if the session exists in local.
@@ -205,7 +210,7 @@
                     sessionMap.set(targetName, sessionId);
 
                     //  Add the sessionCard to the left side of the screen
-                    addNewUserCard(targetName, targetName);
+                    addNewSessionCard(targetName, sessionId, '');
                 }
 
                 currentSession = sessionId;
@@ -257,24 +262,29 @@
             // }
 
             function bindConnectionMessage(connection) {
-                //  Add the message to the screen
-                const displayPublicMessage = function (name, message) {
-                    if (currentSession != 'Public') {
-                        return;
+                const displayUnreadMessage = function (sessionId, sequenceId, sender, messageContent) {
+                    if (sessionMap.has(sender)) {
+                        updateSessionCard(sessionId, messageContent);
+                    } else {
+                        sessionMap.set(sender, sessionId);
+                        addNewSessionCard(sender, sessionId, messageContent);
                     }
-                    const messageEntry = createNewMessage(name, encodedMessage(message), generateGuid());
-                    addNewMessageToScreen(messageEntry);
-                };
+                }
 
+                //  Add the message to the screen
                 const displayUserMessage = function (sessionId, sequenceId, sender, messageContent) {
                     if (currentSession != sessionId) {
+                        displayUnreadMessage(sessionId, sequenceId, sender, messageContent);
                         return;
                     }
-                    const messageEntry = createNewMessage(sender, encodedMessage(messageContent), id);
-                    messageEntry.addEventListener('click', function (event) {
-                        connection.invoke('sendUserAck', sessionId, sequenceId, sender,
-                            "Acknowledged");
-                    });
+
+                    const messageEntry = createNewMessage(sender, encodedMessage(messageContent), sequenceId);
+                    if (currentSession != 'Public') {
+                        messageEntry.addEventListener('click', function (event) {
+                            connection.invoke('sendUserAck', sessionId, sequenceId, sender,
+                                "Acknowledged");
+                        });
+                    }
                     addNewMessageToScreen(messageEntry);
 
                     // connection.invoke('sendUserAck', id, name, "Received");
@@ -292,10 +302,16 @@
                 //  Log all sessions
                 const updateSessions = function (sessions) {
                     console.log(sessions);
+                    sessions.forEach(element => {
+                        if (!sessionMap.has(element.key)) {
+                            sessionMap.set(element.key, element.value.sessionId);
+                            addNewSessionCard(element.key, element.value.sessionId, '');
+                        }
+                    })
                 }
 
                 // Create a function that the hub can call to broadcast messages.
-                connection.on('broadcastMessage', displayPublicMessage);
+                // connection.on('broadcastMessage', displayPublicMessage);
                 connection.on('displayAckMessage', displayAckMessage);
                 connection.on('displayUserMessage', displayUserMessage);
                 connection.on('updateSessions', updateSessions);
@@ -305,7 +321,7 @@
 
             function onConnected(connection) {
                 console.log('connection started');
-                addNewUserCard("Public", "");
+                addNewSessionCard('Public', 'Public', '');
                 connection.invoke('broadcastMessage', '_SYSTEM_', username + ' JOINED');
 
                 document.getElementById('sendmessage').addEventListener('click', (event) => sendUserMessage());

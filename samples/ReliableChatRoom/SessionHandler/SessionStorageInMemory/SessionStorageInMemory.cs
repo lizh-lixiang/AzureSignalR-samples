@@ -50,7 +50,8 @@ namespace Microsoft.Azure.SignalR.Samples.ReliableChatRoom
             _sessionDictionary.TryGetValue(userName, out var userSessions);
             Debug.Assert(userSessions != null, nameof(userSessions) + " != null");
 
-            return userSessions.ToArray();
+            var sortedSessions = new SortedDictionary<string, Session>(userSessions);
+            return sortedSessions.ToArray();
             // return new List<Session>(userSessions.Values);
         }
     }
