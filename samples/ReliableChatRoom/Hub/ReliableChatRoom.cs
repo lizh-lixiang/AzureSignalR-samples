@@ -44,7 +44,11 @@ namespace Microsoft.Azure.SignalR.Samples.ReliableChatRoom
         {
             var message = new Message(userName, DateTime.Now, messageContent, "Sent");
             var sequenceId = _messageHandler.AddNewMessage("Public", message);
-            Clients.All.SendAsync("displayUserMessage", "Public", sequenceId, "Public", messageContent);
+            if(userName=="Public" || userName == "_SYSTEM_"){
+                Clients.All.SendAsync("displayUserMessage", "Public", sequenceId, userName, messageContent);
+            } else {
+                Clients.Others.SendAsync("displayUserMessage", "Public", sequenceId, userName, messageContent);
+            }
 
             return sequenceId;
         }
@@ -72,6 +76,10 @@ namespace Microsoft.Azure.SignalR.Samples.ReliableChatRoom
         public int SendUserMessage(string sessionId, string receiver, string messageContent)
         {
             var sender = Context.UserIdentifier;
+            if(sessionId == "Public")
+            {
+                return BroadcastMessage(sender, messageContent);
+            }
             var message = new Message(sender, DateTime.Now, messageContent, "Sent");
             var sequenceId = _messageHandler.AddNewMessage(sessionId, message);
 

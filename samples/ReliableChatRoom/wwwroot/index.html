@@ -18,18 +18,26 @@
     <table style="height: calc(100% - 200px); width: 60%; margin-left: 20%">
         <tr>
             <td style="width: 20%;height: 100%;">
-                <div style="height: 40px">
-                    <textarea id="userName" style="width: 100%; padding: 5px 10px; border-style: hidden;height: 100%;
-                    border:1px solid #ccc;" placeholder="Type userName"></textarea>
+                <div style="height: 40px; background-color:#eee;">
+                    <div id="userName"
+                        style="font-size: 24px; width: 100%; padding: 5px 10px; border-style: hidden;height: 100%;
+                    border:1px solid #ccc; border-bottom-style: hidden;border-right-style: hidden; font-size: 20px; text-align: center">
+                    </div>
                 </div>
-                <div style="height:calc(100% - 40px);">
+                <div style="height: 40px; background-color: #eee; padding: 5px;border:1px solid #ccc; 
+                border-bottom-style: hidden;border-right-style: hidden;">
+                    <input id="receiverName" style="width: 100%; padding: 5px 10px; border-style: hidden;height: 100%;
+                    border:1px solid #ccc; font-size: 16px; background-color: whitesmoke;"
+                        placeholder="Search user"></textarea>
+                </div>
+                <div style="height:calc(100% - 80px);">
                     <div id="userlist" style="border-right-style: hidden">
                     </div>
                 </div>
             </td>
             <td>
-                <div style="height: 40px"></div>
-                <div style="height:calc(100% - 40px);">
+                <div id="sessionLabel" class="sessionlabel" style="height: 80px">Public</div>
+                <div style="height:calc(100% - 80px);">
                     <div id="messages" style="background-color: whitesmoke;"></div>
                     <div style="width: 100%; border-left:1px solid #ccc; border-right:1px solid #ccc;">
                         <textarea id="message" style="width: 100%; padding: 5px 10px; border-style: hidden;"
@@ -104,9 +112,13 @@
 
             function addNewSessionCard(userName, sessionId, lastestMessage) {
                 const entry = document.createElement('div');
+                entry.id = sessionId;
                 entry.classList.add("usercard");
+                if (sessionId === 'Public') {
+                    entry.style.backgroundColor = "#d0d0d0";
+                }
                 entry.innerHTML =
-                    `<div class="usercardname" id="${sessionId}">${userName}</div>
+                    `<div class="usercardname" id="userName-${sessionId}">${userName}</div>
                     <div class="usercardmessage" id="message-${sessionId}">${lastestMessage}</div>`;
                 entry.addEventListener('click', (event) => {
                     changeSession(userName);
@@ -114,6 +126,15 @@
                 });
 
                 document.getElementById("userlist").appendChild(entry);
+            }
+
+            function swapSessionCard(currentSession, newSession) {
+
+                const preSession = document.getElementById(currentSession);
+                preSession.style.backgroundColor = "#e0e0e0";
+
+                const curSession = document.getElementById(newSession);
+                curSession.style.backgroundColor = "#d0d0d0";
             }
 
             function updateSessionCard(sessionId, lastestMessage) {
@@ -124,27 +145,49 @@
             }
 
             function createNewMessage(sender, message, messageId) {
+                const now = new Date().toLocaleTimeString();
                 const entry = document.createElement('div');
                 entry.classList.add("message-entry");
-                if (sender === "Public") {
+                if (sender === "Public" || sender === "_SYSTEM_") {
                     entry.innerHTML = message;
                     entry.classList.add("text-center");
                     entry.classList.add("system-message");
                 } else if (sender === "_BROADCAST_") {
                     entry.classList.add("text-center");
                     entry.innerHTML =
-                        `<div class="text-center broadcast-message" id="${messageId}">${message}</div>`;
+                        `<div class="text-center broadcast-message" id="messageId-${messageId}">${message}</div>`;
                 } else if (sender === username) {
                     entry.innerHTML =
-                        `<div class="message-avatar pull-right" id="${messageId}">${sender}</div>` +
+                        `<div class="message-avatar pull-right" id="messageId-${messageId}">${sender}<br />${now}</div>` +
                         `<div class="message-content pull-right">${message}<div>`;
                 } else {
                     entry.innerHTML =
-                        `<div class="message-avatar pull-left" id="${messageId}">${sender}</div>` +
+                        `<div class="message-avatar pull-left" id="messageId-${messageId}">${sender}<br />${now}</div>` +
                         `<div class="message-content pull-left">${message}<div>`;
                 }
                 return entry;
             }
+
+            // Get the user name and store it to prepend to messages.
+            var promptMessage = 'Enter your name:';
+            do {
+                username = prompt(promptMessage, username);
+                if (!username || username.startsWith('_') || username.indexOf('<') > -1 || username.indexOf(
+                        '>') > -1) {
+                    username = '';
+                    promptMessage = 'Invalid input. Enter your name:';
+                }
+            } while (!username);
+
+            var connection = new signalR.HubConnectionBuilder()
+                .withUrl(`/chat?username=${username}`)
+                .build();
+
+            // Set initial focus to message input box.
+            const messageInput = document.getElementById('message');
+            const targetNameInput = document.getElementById('targetName');
+            const sessionIdInput = document.getElementById('sessionId');
+            messageInput.focus();
 
             function addNewMessageToScreen(messageEntry) {
                 const messageBoxElement = document.getElementById('messages');
@@ -162,34 +205,30 @@
                 messageBoxElement.innerHTML = ``;
                 messageBoxElement.innerText = ``;
 
+                let cnt = 0;
                 historyMessage.forEach(element => {
                     let messageEntry = createNewMessage(element.senderName,
                         encodedMessage(element
-                            .messageContent), element.messageId);
+                            .messageContent), cnt);
+
+                    if (currentSession != 'Public' && element.senderName != username) {
+                        const ack = function (event) {
+                            connection.invoke('sendUserAck', currentSession, cnt, element
+                                .senderName,
+                                "Acknowledged");
+                        };
+                        messageEntry.addEventListener('click', ack(event));
+                    } else if (currentSession != 'Public' && element.senderName === username) {
+                        const messageStatusEntry = document.createElement('div');
+                        messageStatusEntry.innerHTML =
+                            `<div class="message-avatar pull-right" id="${cnt}-Status">
+                        ${element.messageStatus}</div>`;
+                        messageEntry.appendChild(messageStatusEntry);
+                    }
                     addNewMessageToScreen(messageEntry);
+                    cnt = cnt + 1;
                 });
             }
-
-            // Get the user name and store it to prepend to messages.
-            var promptMessage = 'Enter your name:';
-            do {
-                username = prompt(promptMessage, username);
-                if (!username || username.startsWith('_') || username.indexOf('<') > -1 || username.indexOf(
-                    '>') > -1) {
-                    username = '';
-                    promptMessage = 'Invalid input. Enter your name:';
-                }
-            } while (!username);
-
-            var connection = new signalR.HubConnectionBuilder()
-                .withUrl(`/chat?username=${username}`)
-                .build();
-
-            // Set initial focus to message input box.
-            const messageInput = document.getElementById('message');
-            const targetNameInput = document.getElementById('targetName');
-            const sessionIdInput = document.getElementById('sessionId');
-            messageInput.focus();
 
             //  Logics
             async function loadMessage(sessionId) {
@@ -201,8 +240,14 @@
             }
 
             const changeSession = async function (targetName) {
+                if (targetName === username) {
+                    alert("You could create a session with yourself!");
+                    return;
+                }
+
                 // Check if the session exists in local.
                 var sessionId;
+
                 if (sessionMap.has(targetName)) {
                     sessionId = sessionMap.get(targetName);
                 } else {
@@ -212,6 +257,9 @@
                     //  Add the sessionCard to the left side of the screen
                     addNewSessionCard(targetName, sessionId, '');
                 }
+
+                swapSessionCard(currentSession, sessionId);
+                document.getElementById('sessionLabel').innerText = targetName;
 
                 currentSession = sessionId;
                 currentUser = targetName;
@@ -239,13 +287,13 @@
                 addNewMessageToScreen(messageEntry);
 
                 // Create and add the message status to the message.
-                const messageElement = document.getElementById(messageId);
+                const messageElement = document.getElementById("messageId-" + messageId);
                 const messageStatusEntry = document.createElement('div');
                 const messageBoxElement = document.getElementById('messages');
                 messageStatusEntry.innerHTML =
                     `<div class="message-avatar pull-right" id="${messageId}-Status">
-                        Sending ${now.toLocaleTimeString()}</div>`;
-                messageElement.appendChild(messageStatusEntry);
+                        Sending</div>`;
+                messageEntry.appendChild(messageStatusEntry);
                 messageBoxElement.scrollTop = messageBoxElement.scrollHeight;
                 console.log("messageId: " + messageId + "\nStatus: Sending\nLocal Time: " + now
                     .toLocaleTimeString());
@@ -255,19 +303,30 @@
                     messageText);
                 now = new Date();
                 const statusElement = document.getElementById(messageId + "-Status");
-                statusElement.innerText = "Sent at " + now.toLocaleTimeString();
+                statusElement.innerText = "Sent";
                 console.log("messageId: " + messageId + "\nStatus: " + x + "\nLocal Time: " +
                     now.toLocaleTimeString());
+                statusElement.id = x + "-Status";
+                messageElement.id = "messageId-" + x;
+                updateSessionCard(sessionId, messageText);
             }
             // }
 
             function bindConnectionMessage(connection) {
                 const displayUnreadMessage = function (sessionId, sequenceId, sender, messageContent) {
                     if (sessionMap.has(sender)) {
-                        updateSessionCard(sessionId, messageContent);
+                        updateSessionCard(sessionId, sender + ': ' + messageContent);
                     } else {
                         sessionMap.set(sender, sessionId);
-                        addNewSessionCard(sender, sessionId, messageContent);
+                        addNewSessionCard(sender, sessionId, sender + ': ' + messageContent);
+                    }
+
+                    if (window.Notification && Notification.permission !== "denied") {
+                        Notification.requestPermission(function (status) {
+                            var n = new Notification('You have a new nessage from' + sender, {
+                                body: messageContent
+                            });
+                        });
                     }
                 }
 
@@ -278,7 +337,8 @@
                         return;
                     }
 
-                    const messageEntry = createNewMessage(sender, encodedMessage(messageContent), sequenceId);
+                    const messageEntry = createNewMessage(sender, encodedMessage(messageContent),
+                        sequenceId);
                     if (currentSession != 'Public') {
                         messageEntry.addEventListener('click', function (event) {
                             connection.invoke('sendUserAck', sessionId, sequenceId, sender,
@@ -291,11 +351,14 @@
                 };
 
                 //  Change the status text under the message
-                const displayAckMessage = function (messageId, messageStatus, ackId) {
+                const displayAckMessage = function (sessionId, sequenceId, messageStatus) {
+                    if (sessionId != currentSession) {
+                        return;
+                    }
                     const now = new Date();
-                    const entry = document.getElementById(messageId + "-Status");
-                    entry.innerText = messageStatus + " at " + now.toLocaleTimeString();
-                    console.log("messageId: " + messageId + "\nStatus: " + messageStatus +
+                    const entry = document.getElementById(sequenceId + "-Status");
+                    entry.innerText = messageStatus;
+                    console.log("messageId: " + sessionId + "\nStatus: " + messageStatus +
                         "\nLocal Time: " + now.toLocaleTimeString());
                 }
 
@@ -320,17 +383,25 @@
 
 
             function onConnected(connection) {
+                Notification.requestPermission(function (status) {
+                    if (status === "granted") {
+                        var n = new Notification("Dear " + username +
+                            ": \nYour new messages will be displayed here");
+                    }
+                });
                 console.log('connection started');
                 addNewSessionCard('Public', 'Public', '');
-                connection.invoke('broadcastMessage', '_SYSTEM_', username + ' JOINED');
+                connection.invoke('broadcastMessage', 'Public', username + ' JOINED');
+
+                document.getElementById('userName').innerText = username;
 
                 document.getElementById('sendmessage').addEventListener('click', (event) => sendUserMessage());
 
-                document.getElementById('sendUserMessage').addEventListener('click', (event) =>
+                /*document.getElementById('sendUserMessage').addEventListener('click', (event) =>
                     sendUserMessage(event));
 
                 document.getElementById('loadMessage').addEventListener('click', (event) =>
-                    loadMessage());
+                    loadMessage());*/
 
                 document.getElementById('message').addEventListener('keypress', function (event) {
                     if (event.keyCode === 13) {
@@ -340,10 +411,11 @@
                     }
                 });
 
-                document.getElementById('userName').addEventListener('keypress', function (event) {
+                document.getElementById('receiverName').addEventListener('keypress', function (event) {
                     if (event.keyCode === 13) {
                         event.preventDefault();
                         changeSession(this.value);
+                        this.value = '';
                         return false;
                     }
                 });
