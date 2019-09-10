@@ -15,7 +15,7 @@ html, body {
 
 #messages {
     border: 1px solid #ccc;
-    height: 700px;
+    height: 500px;
     float: none;
     margin: 0px auto;
     padding-left: 0px;
@@ -25,7 +25,7 @@ html, body {
 #userlist {
     border: 1px solid #ccc;
     background-color: #e0e0e0; 
-    height: 782px;
+    height: 582px;
     float: none;
     margin-top: 0px;
     padding-left: 0px;
